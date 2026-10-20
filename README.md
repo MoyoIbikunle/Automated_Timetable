@@ -2,16 +2,10 @@
 
 C + Raylib prototype that generates a weekly staff rota for a small café.
 
-## Build and run (Ubuntu)
+## Setup (Windows)
 
-```
-sudo apt install build-essential libraylib-dev
-make
-./rota
-```
-
-If `libraylib-dev` is not available on your Ubuntu version, build Raylib from source:
-https://github.com/raysan5/raylib/wiki/Working-on-GNU-Linux
+- Compiler: w64devkit extracted to `C:\w64devkit`
+- Raylib 6.0 (`raylib-6.0_win64_mingw-w64.zip`) extracted to `C:\raylib`
 
 ## Data
 
@@ -24,3 +18,22 @@ https://github.com/raysan5/raylib/wiki/Working-on-GNU-Linux
 - At most one shift per day
 - Never more than their weekly maximum
 - Each shift needs a minimum number of staff
+
+## Run (Windows, w64devkit terminal)
+
+```
+make            # builds rota.exe
+./rota.exe      # opens the rota window (G = regenerate)
+make test       # console test of loader + generator, checks every rule
+```
+
+## Files
+
+| File | Purpose |
+| --- | --- |
+| `rota.h` | Structs, constants, function declarations |
+| `data.c` | Loads `staff.txt` |
+| `scheduler.c` | Rule checks (`canWork`) and the generator |
+| `main.c` | Raylib window: staff panel and rota grid |
+| `test_rota.c` | Console test, no Raylib |
+

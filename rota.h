@@ -27,12 +27,18 @@ typedef struct {
     Shift rota[DAYS][SHIFTS];
 } RotaData;
 
-/* data.c (Wed 14 Oct) */
+extern const char *DAY_NAMES[DAYS];
+extern const char *SHIFT_NAMES[SHIFTS];
+
+/* data.c */
 int loadStaff(const char *filename, RotaData *data);
 void printStaff(const RotaData *data);
 
-/* scheduler.c (Tue 20 Oct) */
+/* scheduler.c */
+void setRequired(RotaData *data, int morning, int afternoon, int evening);
 int canWork(const RotaData *data, int staffId, int day, int shift);
 void generateRota(RotaData *data);
+int countUnderstaffed(const RotaData *data);
+void printRota(const RotaData *data);
 
 #endif

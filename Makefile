@@ -3,10 +3,15 @@
 CC = gcc
 CFLAGS = -std=c99 -Wall -Wextra -IC:/raylib/include
 LIBS = -LC:/raylib/lib -lraylib -lopengl32 -lgdi32 -lwinmm
-SRC = main.c
+LOGIC = data.c scheduler.c
 
-rota.exe: $(SRC) rota.h
-	$(CC) $(CFLAGS) $(SRC) -o rota.exe $(LIBS)
+rota.exe: main.c $(LOGIC) rota.h
+	$(CC) $(CFLAGS) main.c $(LOGIC) -o rota.exe $(LIBS)
+
+# Console test of the loader and generator (no Raylib needed)
+test: test_rota.c $(LOGIC) rota.h
+	$(CC) -std=c99 -Wall -Wextra test_rota.c $(LOGIC) -o test_rota.exe
+	./test_rota.exe
 
 clean:
-	rm -f rota.exe
+	rm -f rota.exe test_rota.exe
