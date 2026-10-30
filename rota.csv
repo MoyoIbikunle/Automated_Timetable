@@ -1,0 +1,15 @@
+Shift,Mon,Tue,Wed,Thu,Fri,Sat,Sun
+Morning (7:00-12:00),Sean / Ashley,Darragh / Ciaran,Darragh / Ashley,Sophie / Ciaran,Aoife / Ciaran,Aoife / Ciaran,Niamh / Liam
+Afternoon (12:00-17:00),Aoife / Liam,Sophie / Sean,Niamh / Liam,Sean / Ashley,Niamh / Ashley,Sean / Emma,Darragh / Emma
+Evening (17:00-22:00),Niamh,Aoife,Aoife,Darragh,Sophie,Sophie,Sean
+
+Staff,Shifts,Max
+Aoife,5,5
+Ciaran,4,4
+Niamh,4,5
+Sean,5,5
+Emma,2,3
+Liam,3,4
+Sophie,4,5
+Darragh,4,5
+Ashley,4,4

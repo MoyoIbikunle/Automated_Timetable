@@ -1,0 +1,21 @@
+0 0 0 Sean Ashley
+0 1 0 Aoife Liam
+0 2 0 Niamh
+1 0 0 Darragh Ciaran
+1 1 0 Sophie Sean
+1 2 0 Aoife
+2 0 0 Darragh Ashley
+2 1 0 Niamh Liam
+2 2 0 Aoife
+3 0 0 Sophie Ciaran
+3 1 0 Sean Ashley
+3 2 0 Darragh
+4 0 0 Aoife Ciaran
+4 1 0 Niamh Ashley
+4 2 0 Sophie
+5 0 0 Aoife Ciaran
+5 1 0 Sean Emma
+5 2 0 Sophie
+6 0 0 Niamh Liam
+6 1 0 Darragh Emma
+6 2 0 Sean
