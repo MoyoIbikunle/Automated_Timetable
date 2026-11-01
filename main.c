@@ -9,7 +9,8 @@
  *      Unlock hands it back to the generator.
  *   3. Change a person (optional): click a name, then
  *        - click boxes to mark when they're available (green = available)
- *        - buttons under the staff list: max shifts - / +, Manager, Delete, Done
+ *        - buttons under the staff list: max shifts - / +, Manager, Rename, Delete, Done
+ *      Hovering over a name highlights that person's shifts in the grid
  *      + Add staff: type a name; they start with no availability, so the app
  *        goes straight to editing them to mark when they can work
  *
@@ -22,6 +23,7 @@
  *                        shifts (rota.txt); the saved rota opens next time
  *   Unlock all SET:      every shift back to automatic (also the C key)
  *   ? button:            shows the help screen again
+ *   Closing with unsaved changes asks whether to save first
  *
  *   Keyboard shortcuts: G generate, C unlock all, + / - max shifts, M manager,
  *   Delete (twice) remove, Esc close / finish editing
@@ -57,9 +59,12 @@ static int selected = -1;      /* index of staff being edited, -1 = none */
 static int pendingDelete = -1; /* staff waiting for a second Delete */
 static int unsaved = 0;        /* 1 if staff changed since last save */
 static int showHelp = 1;       /* help screen shows when the app opens */
+static int closeAsk = 0;       /* "Save before closing?" is showing */
+static int closeNow = 0;       /* leave the main loop */
 
-/* Add staff form */
+/* Add staff / rename form */
 static int addOpen = 0;
+static int renaming = 0;       /* 1 = the form renames the selected person instead of adding */
 static char newName[NAME_LEN] = "";
 static int newManager = 0;
 static int newMax = 4;
@@ -94,6 +99,12 @@ static const Rectangle maxPlus = { 705, 285, 30, 30 };
 static const Rectangle addOkBtn = { 365, 375, 170, 38 };
 static const Rectangle addCancelBtn = { 565, 375, 170, 38 };
 
+/* Save before closing? */
+static const Rectangle closeBox = { 300, 200, 500, 200 };
+static const Rectangle closeSaveBtn = { 320, 330, 150, 40 };
+static const Rectangle closeDiscardBtn = { 480, 330, 150, 40 };
+static const Rectangle closeCancelBtn = { 640, 330, 140, 40 };
+
 static const Rectangle unlockAllBtn = { 905, GRID_Y + SHIFTS * CELL_H + 8, 160, 28 };
 
 static void setStatus(const char *msg, Color colour)
@@ -111,7 +122,7 @@ static int mouseOver(Rectangle r)
 /* 1 when no help screen, shift list or form is covering the main window */
 static int mainActive(void)
 {
-    return !popupOpen && !showHelp && !addOpen;
+    return !popupOpen && !showHelp && !addOpen && !closeAsk;
 }
 
 /* Draws a button; returns 1 if clicked this frame (only when active) */
@@ -120,8 +131,9 @@ static int button(Rectangle r, const char *label, int active, Color fill)
     int hover = active && mouseOver(r);
     DrawRectangleRec(r, hover ? SKYBLUE : fill);
     DrawRectangleLinesEx(r, 1, GRAY);
-    int w = MeasureText(label, 18);
-    DrawText(label, (int)(r.x + (r.width - w) / 2), (int)(r.y + (r.height - 18) / 2), 18, active ? DARKGRAY : GRAY);
+    int size = MeasureText(label, 18) <= r.width - 8 ? 18 : 16;   /* smaller text if it wouldn't fit */
+    int w = MeasureText(label, size);
+    DrawText(label, (int)(r.x + (r.width - w) / 2), (int)(r.y + (r.height - size) / 2), size, active ? DARKGRAY : GRAY);
     return hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
 }
 
@@ -146,16 +158,18 @@ static Rectangle cellRect(int day, int shift)
     return r;
 }
 
-/* Edit buttons under the staff list: 0 = max -, 1 = max +, 2 = manager, 3 = delete, 4 = done */
+/* Edit buttons under the staff list:
+   0 = max -, 1 = max +, 2 = manager, 3 = delete, 4 = done, 5 = rename */
 static Rectangle editButton(int n)
 {
     float y = GRID_Y + SHIFTS * CELL_H - 118;
-    Rectangle r[5] = {
+    Rectangle r[6] = {
         { PANEL_X + 120, y, 30, 30 },
         { PANEL_X + 180, y, 30, 30 },
-        { PANEL_X + 10, y + 40, 200, 30 },
+        { PANEL_X + 10, y + 40, 120, 30 },
         { PANEL_X + 10, y + 80, 95, 30 },
         { PANEL_X + 115, y + 80, 95, 30 },
+        { PANEL_X + 135, y + 40, 75, 30 },
     };
     return r[n];
 }
@@ -273,9 +287,39 @@ static void toggleAvailability(int d, int sh)
 
 /* ---------- Add staff form ---------- */
 
+static void openRenameForm(void)
+{
+    addOpen = 1;
+    renaming = 1;
+    snprintf(newName, sizeof(newName), "%s", data.staff[selected].name);
+    addError[0] = '\0';
+}
+
+static void tryRename(void)
+{
+    char oldName[NAME_LEN];
+    snprintf(oldName, sizeof(oldName), "%s", data.staff[selected].name);
+    int result = renameStaff(&data, selected, newName);
+    if (result == -2)
+    {
+        snprintf(addError, sizeof(addError), "Type a one-word name (letters, numbers, - or ')");
+        return;
+    }
+    if (result == -3)
+    {
+        snprintf(addError, sizeof(addError), "Someone else is already called %s", newName);
+        return;
+    }
+    addOpen = 0;
+    renaming = 0;
+    unsaved = 1;
+    setStatus(TextFormat("Renamed %s to %s", oldName, newName), DARKBLUE);
+}
+
 static void openAddForm(void)
 {
     addOpen = 1;
+    renaming = 0;
     newName[0] = '\0';
     newManager = 0;
     newMax = 4;
@@ -284,6 +328,11 @@ static void openAddForm(void)
 
 static void tryAddStaff(void)
 {
+    if (renaming)
+    {
+        tryRename();
+        return;
+    }
     int idx = addStaff(&data, newName, newManager, newMax);
     if (idx == -1)
     {
@@ -328,6 +377,7 @@ static void handleAddInput(int key)
     if (key == KEY_ESCAPE)
     {
         addOpen = 0;
+        renaming = 0;
         return;
     }
     if (key == KEY_ENTER || key == KEY_KP_ENTER)
@@ -339,15 +389,15 @@ static void handleAddInput(int key)
     {
         return;
     }
-    if (mouseOver(managerTick))
+    if (!renaming && mouseOver(managerTick))
     {
         newManager = !newManager;
     }
-    if (mouseOver(maxMinus) && newMax > 0)
+    if (!renaming && mouseOver(maxMinus) && newMax > 0)
     {
         newMax--;
     }
-    if (mouseOver(maxPlus) && newMax < DAYS)
+    if (!renaming && mouseOver(maxPlus) && newMax < DAYS)
     {
         newMax++;
     }
@@ -358,6 +408,7 @@ static void handleAddInput(int key)
     if (mouseOver(addCancelBtn))
     {
         addOpen = 0;
+        renaming = 0;
     }
 }
 
@@ -367,7 +418,8 @@ static void drawAddForm(void)
     DrawRectangleRec(addBox, RAYWHITE);
     DrawRectangleLinesEx(addBox, 2, DARKGRAY);
 
-    DrawText("Add a staff member", (int)addBox.x + 25, (int)addBox.y + 20, 24, DARKGRAY);
+    DrawText(renaming ? TextFormat("Rename %s", data.staff[selected].name) : "Add a staff member",
+             (int)addBox.x + 25, (int)addBox.y + 20, 24, DARKGRAY);
     DrawText("Name (one word)", (int)nameBox.x, (int)nameBox.y - 22, 16, DARKGRAY);
 
     DrawRectangleRec(nameBox, WHITE);
@@ -376,6 +428,19 @@ static void drawAddForm(void)
     if (((int)(GetTime() * 2)) % 2 == 0)   /* blinking cursor */
     {
         DrawText("_", (int)nameBox.x + 12 + MeasureText(newName, 20), (int)nameBox.y + 9, 20, DARKGRAY);
+    }
+
+    if (renaming)
+    {
+        DrawText("Their shifts and availability stay the same.",
+                 (int)addBox.x + 25, (int)addBox.y + 190, 14, GRAY);
+        if (addError[0] != '\0')
+        {
+            DrawText(addError, (int)addBox.x + 25, (int)addBox.y + 208, 16, RED);
+        }
+        button(addOkBtn, "Rename", 1, Fade(GREEN, 0.35f));
+        button(addCancelBtn, "Cancel", 1, LIGHTGRAY);
+        return;
     }
 
     Rectangle box = { managerTick.x, managerTick.y + 2, 20, 20 };
@@ -391,7 +456,7 @@ static void drawAddForm(void)
     DrawText(TextFormat("%d", newMax), (int)maxMinus.x + 45, (int)maxMinus.y + 6, 18, DARKGRAY);
     button(maxPlus, "+", 1, LIGHTGRAY);
 
-    DrawText("They start with no availability - you'll mark when they can work next.",
+    DrawText("They start with no availability - you'll mark that next.",
              (int)addBox.x + 25, (int)addBox.y + 190, 14, GRAY);
     if (addError[0] != '\0')
     {
@@ -629,7 +694,7 @@ static void drawHelp(void)
 
     DrawText("3.  Change a person  (optional)", x, y, 20, DARKBLUE);
     DrawText("Click a name, then click boxes to mark when they're available (green = yes).", x + 30, y + 26, 16, DARKGRAY);
-    DrawText("Buttons under the staff list change their max shifts, manager status, or remove them.", x + 30, y + 46, 16, DARKGRAY);
+    DrawText("Buttons under the staff list change max shifts, manager, name, or remove them.", x + 30, y + 46, 16, DARKGRAY);
     y += 85;
 
     DrawText("Colours:", x, y, 18, DARKGRAY);
@@ -651,6 +716,48 @@ static void drawHelp(void)
     button(gotItBtn, "Got it", 1, Fade(GREEN, 0.35f));
 }
 
+/* ---------- Save before closing? ---------- */
+
+static void handleCloseInput(int key)
+{
+    int clicked = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    if (key == KEY_ESCAPE || (clicked && mouseOver(closeCancelBtn)))
+    {
+        closeAsk = 0;
+        return;
+    }
+    if (clicked && mouseOver(closeSaveBtn))
+    {
+        if (saveStaff(STAFF_FILE, &data) && saveRota(ROTA_SAVE_FILE, &data))
+        {
+            closeNow = 1;
+        }
+        else
+        {
+            closeAsk = 0;
+            setStatus("Could not save (is staff.txt or rota.txt open in another program?)", RED);
+        }
+    }
+    if (clicked && mouseOver(closeDiscardBtn))
+    {
+        closeNow = 1;
+    }
+}
+
+static void drawCloseAsk(void)
+{
+    DrawRectangle(0, 0, SCREEN_W, SCREEN_H, Fade(BLACK, 0.35f));
+    DrawRectangleRec(closeBox, RAYWHITE);
+    DrawRectangleLinesEx(closeBox, 2, DARKGRAY);
+    DrawText("Save before closing?", (int)closeBox.x + 25, (int)closeBox.y + 25, 24, DARKGRAY);
+    DrawText("Changes to the staff or rota aren't saved yet.",
+             (int)closeBox.x + 25, (int)closeBox.y + 70, 16, DARKGRAY);
+    DrawText("If you close without saving, they'll be lost.", (int)closeBox.x + 25, (int)closeBox.y + 92, 16, DARKGRAY);
+    button(closeSaveBtn, "Save & close", 1, Fade(GREEN, 0.35f));
+    button(closeDiscardBtn, "Don't save", 1, Fade(RED, 0.25f));
+    button(closeCancelBtn, "Cancel", 1, LIGHTGRAY);
+}
+
 /* ---------- Input ---------- */
 
 static void handleInput(void)
@@ -658,6 +765,11 @@ static void handleInput(void)
     int key = GetKeyPressed();
     int clicked = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
 
+    if (closeAsk)
+    {
+        handleCloseInput(key);
+        return;
+    }
     if (showHelp)
     {
         if (key == KEY_ESCAPE || key == KEY_ENTER || (clicked && mouseOver(gotItBtn)))
@@ -689,6 +801,7 @@ static void handleInput(void)
         if (mouseOver(editButton(0))) { changeMax(-1); }
         if (mouseOver(editButton(1))) { changeMax(+1); }
         if (mouseOver(editButton(2))) { toggleManager(); }
+        if (mouseOver(editButton(5))) { openRenameForm(); return; }
         if (mouseOver(editButton(4))) { selected = -1; }
     }
 
@@ -820,13 +933,33 @@ static void drawStaffPanel(void)
     DrawText(TextFormat("%d", s->maxShifts), PANEL_X + 160, (int)minus.y + 6, 18, DARKGRAY);
     button(editButton(1), "+", active, LIGHTGRAY);
     button(editButton(2), s->isManager ? "Manager: Yes" : "Manager: No", active, LIGHTGRAY);
+    button(editButton(5), "Rename", active, LIGHTGRAY);
     button(editButton(3), pendingDelete == selected ? "Confirm?" : "Delete", active,
            pendingDelete == selected ? Fade(RED, 0.4f) : LIGHTGRAY);
     button(editButton(4), "Done", active, Fade(GREEN, 0.35f));
 }
 
+/* The person whose name the mouse is over (when nobody is being edited), or -1 */
+static int hoveredStaff(void)
+{
+    if (selected != -1 || !mainActive())
+    {
+        return -1;
+    }
+    for (int i = 0; i < data.staffCount; i++)
+    {
+        if (mouseOver(staffRow(i)))
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
 static void drawGrid(void)
 {
+    int hover = hoveredStaff();
+
     for (int d = 0; d < DAYS; d++)
     {
         DrawText(DAY_NAMES[d], GRID_X + d * CELL_W + 40, GRID_Y - 25, 20, DARKGRAY);
@@ -852,6 +985,10 @@ static void drawGrid(void)
             else if (understaffed)
             {
                 DrawRectangleRec(r, Fade(RED, 0.25f));
+            }
+            if (hover != -1 && findOnShift(&data, hover, d, sh) != -1)
+            {
+                DrawRectangleRec(r, Fade(GOLD, 0.35f));   /* this person's shifts */
             }
             if (mainActive() && mouseOver(r))
             {
@@ -879,7 +1016,8 @@ static void drawGrid(void)
             for (int i = 0; i < shift->count; i++)
             {
                 int id = shift->staffIds[i];
-                DrawText(data.staff[id].name, x + 10, y + 34 + i * 19, 16, id == selected ? DARKGREEN : BLACK);
+                Color c = (id == selected) ? DARKGREEN : (id == hover ? DARKBLUE : BLACK);
+                DrawText(data.staff[id].name, x + 10, y + 34 + i * 19, 16, c);
             }
         }
     }
@@ -920,9 +1058,14 @@ static const char *hintText(void)
     {
         return "";
     }
+    if (closeAsk)
+    {
+        return "";
+    }
     if (addOpen)
     {
-        return "Type a one-word name, set Manager and max shifts, then Add  (Esc to cancel)";
+        return renaming ? "Type the new one-word name, then Rename  (Esc to cancel)"
+                        : "Type a one-word name, set Manager and max shifts, then Add  (Esc to cancel)";
     }
     if (popupOpen)
     {
@@ -940,7 +1083,7 @@ static const char *hintText(void)
         if (mouseOver(staffRow(i)))
         {
             return i == selected ? TextFormat("Click to finish editing %s", data.staff[i].name)
-                                 : TextFormat("Click to edit %s: when they can work, max shifts, manager", data.staff[i].name);
+                                 : TextFormat("%s's shifts are highlighted - click to edit them", data.staff[i].name);
         }
     }
     for (int d = 0; d < DAYS; d++)
@@ -994,8 +1137,18 @@ int main(void)
     SetExitKey(KEY_NULL);          /* Esc closes things, it doesn't quit (use the window's X) */
     SetTargetFPS(60);
 
-    while (!WindowShouldClose())
+    while (!closeNow)
     {
+        /* Closing the window: ask first if anything isn't saved */
+        if (WindowShouldClose())
+        {
+            if (!unsaved)
+            {
+                break;
+            }
+            closeAsk = 1;
+        }
+
         handleInput();
 
         BeginDrawing();
@@ -1081,6 +1234,10 @@ int main(void)
         if (showHelp)
         {
             drawHelp();
+        }
+        if (closeAsk)
+        {
+            drawCloseAsk();
         }
 
         EndDrawing();

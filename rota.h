@@ -41,6 +41,7 @@ int saveStaff(const char *filename, const RotaData *data);
 int exportRotaCSV(const char *filename, const RotaData *data);
 int findStaff(const RotaData *data, const char *name);
 int addStaff(RotaData *data, const char *name, int isManager, int maxShifts);
+int renameStaff(RotaData *data, int index, const char *name);
 int saveRota(const char *filename, const RotaData *data);
 int loadRota(const char *filename, RotaData *data);
 

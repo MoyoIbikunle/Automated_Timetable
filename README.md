@@ -45,7 +45,8 @@ The rota is built automatically; a manager only steps in if they want to. A help
    - **Cancel** (or Esc): close without changing anything
 3. **Change a person (optional)**: click a name, then
    - click boxes to mark when they can work (green = available, grey = not)
-   - buttons under the staff list: **Max shifts - / +**, **Manager: Yes/No**, **Delete** (click twice to confirm), **Done**
+   - buttons under the staff list: **Max shifts - / +**, **Manager: Yes/No**, **Rename**, **Delete** (click twice to confirm), **Done**
+   - hovering over a name (without clicking) highlights that person's shifts in the grid
 4. **Add staff**: click **+ Add staff** under the staff list, type a one-word name, tick Manager if needed, set max shifts, then **Add**. They start with no availability, so the app goes straight to editing them: click the boxes when they can work
 
 Other buttons:
@@ -53,6 +54,8 @@ Other buttons:
 - **Save**: writes the staff to `staff.txt` and the rota (including SET shifts) to `rota.txt`. Next time the app opens, it shows the saved rota; press Generate for a new one. `Save *` = unsaved changes
 
 Shifts without a manager get an orange border; shifts without enough staff are red. After Generate, a message explains anything left over.
+
+Closing the window with unsaved changes asks **Save & close / Don't save / Cancel**, so nothing is lost by accident.
 
 Keyboard shortcuts: G generate, C unlock all, + / - max shifts, M manager, Delete twice remove, Esc close or finish editing. Close the window with its X.
 
@@ -67,7 +70,7 @@ It tries 200 random rotas and keeps the best: fewest understaffed shifts first, 
 ```
 make            # builds rota.exe
 ./rota.exe      # opens the rota window (G = regenerate)
-make test       # console tests: rules, manager rule, export, save/reload, add/delete staff, SET shifts, saved rota
+make test       # console tests: rules, manager rule, export, save/reload, add/delete staff, SET shifts, saved rota, rename
 ```
 
 ## Files
@@ -75,7 +78,7 @@ make test       # console tests: rules, manager rule, export, save/reload, add/d
 | File | Purpose |
 | --- | --- |
 | `rota.h` | Structs, constants, function declarations |
-| `data.c` | Loads, saves, adds and deletes staff (`staff.txt`); saves/reopens the rota (`rota.txt`); exports `rota.csv` |
+| `data.c` | Loads, saves, adds, renames and deletes staff (`staff.txt`); saves/reopens the rota (`rota.txt`); exports `rota.csv` |
 | `scheduler.c` | Rule checks (`canWork`) and the generator |
 | `main.c` | Raylib window: staff panel and rota grid |
 | `test_rota.c` | Console test, no Raylib |

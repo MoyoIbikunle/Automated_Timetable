@@ -219,6 +219,42 @@ int findStaff(const RotaData *data, const char *name)
     return -1;
 }
 
+/* Names must be one word (letters, digits, - or ') so staff.txt can read them */
+static int validName(const char *name)
+{
+    size_t len = strlen(name);
+    if (len == 0 || len >= NAME_LEN)
+    {
+        return 0;
+    }
+    for (size_t i = 0; i < len; i++)
+    {
+        char c = name[i];
+        int ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '\'';
+        if (!ok)
+        {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+/* Changes someone's name. Returns 0 on success, -2 bad name, -3 name taken. */
+int renameStaff(RotaData *data, int index, const char *name)
+{
+    if (!validName(name))
+    {
+        return -2;
+    }
+    int other = findStaff(data, name);
+    if (other != -1 && other != index)
+    {
+        return -3;
+    }
+    strcpy(data->staff[index].name, name);
+    return 0;
+}
+
 /* Adds a new staff member with no availability yet (so they aren't put on
    any shift until someone marks when they can work).
    Returns their index, or one of: -1 list full, -2 bad name, -3 name taken.
@@ -229,19 +265,9 @@ int addStaff(RotaData *data, const char *name, int isManager, int maxShifts)
     {
         return -1;
     }
-    size_t len = strlen(name);
-    if (len == 0 || len >= NAME_LEN)
+    if (!validName(name))
     {
         return -2;
-    }
-    for (size_t i = 0; i < len; i++)
-    {
-        char c = name[i];
-        int ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '\'';
-        if (!ok)
-        {
-            return -2;
-        }
     }
     if (findStaff(data, name) != -1)
     {

@@ -289,6 +289,21 @@ int main(void)
     check(!loadRota("no_such_file.txt", &data), "no saved rota = nothing loaded");
     printf("Save and reopen rota checked\n");
 
+    /* Rename: works, keeps their shifts, refuses bad or taken names, and the
+       saved rota uses the new name */
+    generateRota(&data);
+    int who = data.rota[0][0].staffIds[0];
+    int shiftsBefore = data.staff[who].assigned;
+    check(renameStaff(&data, who, "Renamed") == 0 && strcmp(data.staff[who].name, "Renamed") == 0, "rename");
+    check(data.staff[who].assigned == shiftsBefore && findOnShift(&data, who, 0, 0) != -1, "rename keeps their shifts");
+    check(renameStaff(&data, who, "Renamed") == 0, "renaming to the same name is fine");
+    check(renameStaff(&data, who, data.staff[(who + 1) % data.staffCount].name) == -3, "rename to someone else's name refused");
+    check(renameStaff(&data, who, "Two words") == -2, "rename with a space refused");
+    saveRota("test_rename.txt", &data);
+    check(loadRota("test_rename.txt", &data) && findOnShift(&data, who, 0, 0) != -1, "saved rota uses the new name");
+    remove("test_rename.txt");
+    printf("Rename checked\n");
+
     printf(errors == 0 ? "\nAll checks passed\n" : "\n%d checks failed\n", errors);
     return errors != 0;
 }
